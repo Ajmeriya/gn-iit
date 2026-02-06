@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hide Bolt badge/watermark injected by hosting */
+#bolt-badge,
+#bolt-watermark,
+.bolt-badge,
+.bolt-watermark,
+a[href*="bolt.new"],
+a[href*="bolt.new/"]
+{
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+	pointer-events: none !important;
+}
