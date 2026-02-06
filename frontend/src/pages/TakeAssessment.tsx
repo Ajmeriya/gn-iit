@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Zap, LogOut, Clock, ChevronLeft, ChevronRight, CheckCircle, Code, FileText, List } from 'lucide-react';
 import Editor from '@monaco-editor/react';
-import { getApplicationForCandidate, getAssessments, markAssessmentCompleted } from '../data/storage';
+import { AssessmentQuestion, getApplicationForCandidate, getAssessments, markAssessmentCompleted, saveAssessmentSubmission } from '../data/storage';
 import ThemeToggle from '../components/ThemeToggle';
 
 interface User {
@@ -15,15 +15,6 @@ interface User {
 interface TakeAssessmentProps {
   user: User;
   onLogout: () => void;
-}
-
-interface Question {
-  id: string;
-  type: 'mcq' | 'subjective' | 'coding';
-  question: string;
-  options?: string[];
-  correctAnswer?: string;
-  testCases?: { input: string; output: string }[];
 }
 
 export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) {
@@ -55,7 +46,7 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
   const [timeLeft, setTimeLeft] = useState(5400);
   const [code, setCode] = useState('// Write your code here\n');
 
-  const mockQuestions: Question[] = [
+  const mockQuestions: AssessmentQuestion[] = [
     {
       id: '1',
       type: 'mcq',
@@ -65,7 +56,8 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
         'To style React components',
         'To handle routing in React',
         'To manage API calls'
-      ]
+      ],
+      correctAnswer: 'To add state and lifecycle features to functional components'
     },
     {
       id: '2',
@@ -76,7 +68,8 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
         'setState({value: newValue})',
         'updateState(newValue)',
         'state.value = newValue'
-      ]
+      ],
+      correctAnswer: 'setState({value: newValue})'
     },
     {
       id: '3',
@@ -127,6 +120,21 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
 
   const handleSubmit = () => {
     if (assessmentId) {
+      const mcqQuestions = mockQuestions.filter(item => item.type === 'mcq' && item.correctAnswer);
+      const correctCount = mcqQuestions.filter(item => answers[item.id] === item.correctAnswer).length;
+      const score = mcqQuestions.length > 0
+        ? Math.round((correctCount / mcqQuestions.length) * 100)
+        : 0;
+      const result: 'passed' | 'failed' = score >= 60 ? 'passed' : 'failed';
+      saveAssessmentSubmission({
+        assessmentId,
+        candidateId: user.id,
+        questions: mockQuestions,
+        answers,
+        score,
+        result,
+        submittedAt: new Date().toISOString()
+      });
       markAssessmentCompleted(assessmentId, user.id);
     }
     navigate('/candidate');

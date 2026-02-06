@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, LogOut, ArrowLeft, Sparkles, FileText, Clock, Target, Brain } from 'lucide-react';
+import { Zap, LogOut, ArrowLeft, Sparkles, FileText, Brain } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { saveAssessment } from '../data/storage';
 
@@ -30,6 +30,12 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
   const [skillInput, setSkillInput] = useState('');
   const [minExperience, setMinExperience] = useState(2);
   const [minMatchScore, setMinMatchScore] = useState(70);
+  const [mcqCount, setMcqCount] = useState(15);
+  const [descriptiveCount, setDescriptiveCount] = useState(10);
+  const [dsaCount, setDsaCount] = useState(5);
+  const [mcqTime, setMcqTime] = useState(20);
+  const [descriptiveTime, setDescriptiveTime] = useState(30);
+  const [dsaTime, setDsaTime] = useState(45);
 
   const handleAnalyzeJD = async () => {
     setLoading(true);
@@ -47,6 +53,9 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
     };
 
     setGeneratedData(mockData);
+    setMcqCount(mockData.questions.mcq);
+    setDescriptiveCount(mockData.questions.subjective);
+    setDsaCount(mockData.questions.coding);
     setRequiredSkills(mockData.skills);
     setLoading(false);
     setStep(2);
@@ -60,8 +69,14 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
       title: assessmentTitle || generatedData?.role || 'Untitled Assessment',
       role: generatedData?.role || assessmentTitle,
       company: user.name || 'Recruiter',
+      description: jobDescription.trim(),
       duration,
-      questions: (generatedData?.questions?.mcq || 0) + (generatedData?.questions?.subjective || 0) + (generatedData?.questions?.coding || 0),
+      questions: mcqCount + descriptiveCount + dsaCount,
+      questionConfig: {
+        mcq: { count: mcqCount, timeMinutes: mcqTime },
+        descriptive: { count: descriptiveCount, timeMinutes: descriptiveTime },
+        dsa: { count: dsaCount, timeMinutes: dsaTime }
+      },
       status: 'active',
       createdAt: new Date().toISOString(),
       avgScore: 0,
@@ -107,7 +122,12 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
           </div>
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            <span className="text-gray-700 font-medium">{user.name}</span>
+            <button
+              onClick={() => navigate('/recruiter/profile')}
+              className="text-gray-700 font-medium hover:text-blue-600 transition"
+            >
+              {user.name}
+            </button>
             <button
               onClick={onLogout}
               className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-red-600 transition"
@@ -333,18 +353,75 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Question Breakdown
                   </label>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <div className="text-blue-600 text-sm mb-1">Multiple Choice</div>
-                      <div className="text-2xl font-bold text-gray-900">{generatedData.questions.mcq}</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3">
+                      <div className="text-blue-600 text-sm font-semibold">MCQ</div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">No. of Questions</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={mcqCount}
+                          onChange={(e) => setMcqCount(Math.max(0, Number(e.target.value)))}
+                          className="w-full px-3 py-2 border border-blue-200 rounded-lg bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Time (minutes)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={mcqTime}
+                          onChange={(e) => setMcqTime(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-3 py-2 border border-blue-200 rounded-lg bg-white"
+                        />
+                      </div>
                     </div>
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <div className="text-green-600 text-sm mb-1">Subjective</div>
-                      <div className="text-2xl font-bold text-gray-900">{generatedData.questions.subjective}</div>
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200 space-y-3">
+                      <div className="text-green-600 text-sm font-semibold">Descriptive</div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">No. of Questions</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={descriptiveCount}
+                          onChange={(e) => setDescriptiveCount(Math.max(0, Number(e.target.value)))}
+                          className="w-full px-3 py-2 border border-green-200 rounded-lg bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Time (minutes)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={descriptiveTime}
+                          onChange={(e) => setDescriptiveTime(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-3 py-2 border border-green-200 rounded-lg bg-white"
+                        />
+                      </div>
                     </div>
-                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                      <div className="text-purple-600 text-sm mb-1">Coding</div>
-                      <div className="text-2xl font-bold text-gray-900">{generatedData.questions.coding}</div>
+                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 space-y-3">
+                      <div className="text-purple-600 text-sm font-semibold">DSA</div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">No. of Questions</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={dsaCount}
+                          onChange={(e) => setDsaCount(Math.max(0, Number(e.target.value)))}
+                          className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Time (minutes)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={dsaTime}
+                          onChange={(e) => setDsaTime(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-3 py-2 border border-purple-200 rounded-lg bg-white"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

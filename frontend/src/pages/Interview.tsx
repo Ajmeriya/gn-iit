@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Zap, LogOut, MessageCircle, Send, Mic, MicOff, Brain, Clock } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { isAssessmentCompleted } from '../data/storage';
+import { isAssessmentCompleted, markInterviewCompleted } from '../data/storage';
 
 interface User {
   id: string;
@@ -119,6 +119,9 @@ export default function Interview({ user, onLogout }: InterviewProps) {
   };
 
   const handleEndInterview = () => {
+    if (assessmentId) {
+      markInterviewCompleted(assessmentId, user.id);
+    }
     navigate('/candidate');
   };
 

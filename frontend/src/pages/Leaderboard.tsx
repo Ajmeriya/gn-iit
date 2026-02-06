@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Zap, LogOut, ArrowLeft, Award, TrendingUp, TrendingDown, Medal, Search, Filter } from 'lucide-react';
+import { Zap, LogOut, ArrowLeft, Award } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import { getApplicationsForAssessment, getAssessmentSubmissionsForAssessment, getAssessments } from '../data/storage';
 
 interface User {
   id: string;
@@ -15,144 +16,117 @@ interface LeaderboardProps {
   onLogout: () => void;
 }
 
-interface Candidate {
-  rank: number;
+type ScoreResult = 'passed' | 'failed';
+
+interface ScoreEntry {
+  candidateId: string;
   name: string;
   email: string;
-  overallScore: number;
-  skills: {
-    react: number;
-    typescript: number;
-    node: number;
-    testing: number;
-  };
-  interviewScore: number;
-  timeSpent: number;
-  status: 'shortlisted' | 'under_review' | 'rejected';
-  trend: 'up' | 'down' | 'same';
+  score: number;
+  result: ScoreResult;
 }
 
 export default function Leaderboard({ user, onLogout }: LeaderboardProps) {
   const navigate = useNavigate();
   const { assessmentId } = useParams();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'shortlisted' | 'under_review' | 'rejected'>('all');
+  const assessment = getAssessments().find(item => item.id === assessmentId);
 
-  const candidates: Candidate[] = [
+  const appliedCandidates = useMemo(() => {
+    if (!assessmentId) return [];
+    return getApplicationsForAssessment(assessmentId);
+  }, [assessmentId]);
+
+  const assessmentSubmissions = useMemo(() => {
+    if (!assessmentId) return [];
+    return getAssessmentSubmissionsForAssessment(assessmentId);
+  }, [assessmentId]);
+
+  const staticAppliedCandidates: ScoreEntry[] = [
     {
-      rank: 1,
-      name: 'Alice Johnson',
-      email: 'alice@example.com',
-      overallScore: 92,
-      skills: { react: 95, typescript: 90, node: 88, testing: 92 },
-      interviewScore: 94,
-      timeSpent: 75,
-      status: 'shortlisted',
-      trend: 'up'
+      candidateId: 'static-1',
+      name: 'Aarav Mehta',
+      email: 'aarav.mehta@example.com',
+      score: 82,
+      result: 'passed'
     },
     {
-      rank: 2,
-      name: 'Bob Smith',
-      email: 'bob@example.com',
-      overallScore: 88,
-      skills: { react: 90, typescript: 85, node: 87, testing: 88 },
-      interviewScore: 90,
-      timeSpent: 82,
-      status: 'shortlisted',
-      trend: 'same'
+      candidateId: 'static-2',
+      name: 'Diya Sharma',
+      email: 'diya.sharma@example.com',
+      score: 54,
+      result: 'failed'
     },
     {
-      rank: 3,
-      name: 'Carol White',
-      email: 'carol@example.com',
-      overallScore: 85,
-      skills: { react: 88, typescript: 82, node: 84, testing: 85 },
-      interviewScore: 87,
-      timeSpent: 79,
-      status: 'shortlisted',
-      trend: 'up'
-    },
-    {
-      rank: 4,
-      name: 'David Brown',
-      email: 'david@example.com',
-      overallScore: 82,
-      skills: { react: 85, typescript: 80, node: 81, testing: 82 },
-      interviewScore: 84,
-      timeSpent: 88,
-      status: 'under_review',
-      trend: 'down'
-    },
-    {
-      rank: 5,
-      name: 'Eve Davis',
-      email: 'eve@example.com',
-      overallScore: 80,
-      skills: { react: 82, typescript: 78, node: 79, testing: 81 },
-      interviewScore: 82,
-      timeSpent: 90,
-      status: 'under_review',
-      trend: 'same'
-    },
-    {
-      rank: 6,
-      name: 'Frank Miller',
-      email: 'frank@example.com',
-      overallScore: 76,
-      skills: { react: 78, typescript: 74, node: 75, testing: 77 },
-      interviewScore: 78,
-      timeSpent: 85,
-      status: 'under_review',
-      trend: 'up'
-    },
-    {
-      rank: 7,
-      name: 'Grace Lee',
-      email: 'grace@example.com',
-      overallScore: 74,
-      skills: { react: 76, typescript: 72, node: 73, testing: 75 },
-      interviewScore: 76,
-      timeSpent: 87,
-      status: 'under_review',
-      trend: 'down'
-    },
-    {
-      rank: 8,
-      name: 'Henry Wilson',
-      email: 'henry@example.com',
-      overallScore: 68,
-      skills: { react: 70, typescript: 66, node: 67, testing: 69 },
-      interviewScore: 70,
-      timeSpent: 92,
-      status: 'rejected',
-      trend: 'down'
+      candidateId: 'static-3',
+      name: 'Kabir Patel',
+      email: 'kabir.patel@example.com',
+      score: 76,
+      result: 'passed'
     }
   ];
 
-  const filteredCandidates = candidates.filter(candidate => {
-    const matchesSearch = candidate.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         candidate.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || candidate.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Medal className="w-6 h-6 text-yellow-500" />;
-    if (rank === 2) return <Medal className="w-6 h-6 text-gray-400" />;
-    if (rank === 3) return <Medal className="w-6 h-6 text-orange-600" />;
-    return null;
-  };
-
-  const getStatusStyle = (status: Candidate['status']) => {
-    switch (status) {
-      case 'shortlisted':
-        return 'bg-green-100 text-green-700';
-      case 'under_review':
-        return 'bg-orange-100 text-orange-700';
-      case 'rejected':
-        return 'bg-red-100 text-red-700';
+  const staticInterviewedCandidates: ScoreEntry[] = [
+    {
+      candidateId: 'static-interview-1',
+      name: 'Neha Kapoor',
+      email: 'neha.kapoor@example.com',
+      score: 86,
+      result: 'passed'
+    },
+    {
+      candidateId: 'static-interview-2',
+      name: 'Sahil Nair',
+      email: 'sahil.nair@example.com',
+      score: 49,
+      result: 'failed'
+    },
+    {
+      candidateId: 'static-interview-3',
+      name: 'Riya Sen',
+      email: 'riya.sen@example.com',
+      score: 78,
+      result: 'passed'
     }
-  };
+  ];
+
+  const assessmentEntries: ScoreEntry[] = assessmentSubmissions.length > 0
+    ? assessmentSubmissions.map((submission, index) => {
+        const candidate = appliedCandidates.find(item => item.candidateId === submission.candidateId);
+        return {
+          candidateId: submission.candidateId,
+          name: candidate?.name || `Candidate ${index + 1}`,
+          email: candidate?.email || '-',
+          score: submission.score,
+          result: submission.result
+        };
+      })
+    : staticAppliedCandidates;
+
+  const interviewEntries = staticInterviewedCandidates;
+
+  const sortDesc = (a: ScoreEntry, b: ScoreEntry) => b.score - a.score;
+
+  const assessmentPassed = [...assessmentEntries].filter(item => item.result === 'passed').sort(sortDesc);
+  const assessmentFailed = [...assessmentEntries].filter(item => item.result === 'failed').sort(sortDesc);
+  const interviewPassed = [...interviewEntries].filter(item => item.result === 'passed').sort(sortDesc);
+  const interviewFailed = [...interviewEntries].filter(item => item.result === 'failed').sort(sortDesc);
+
+  const mergedPassed = [
+    ...interviewPassed.map(item => ({ ...item, source: 'AI Interview' as const })),
+    ...assessmentPassed.map(item => ({ ...item, source: 'Assessment' as const }))
+  ].sort(sortDesc);
+
+  const mergedFailed = [
+    ...interviewFailed.map(item => ({ ...item, source: 'AI Interview' as const })),
+    ...assessmentFailed.map(item => ({ ...item, source: 'Assessment' as const }))
+  ].sort(sortDesc);
+
+  const mergedAll = [...mergedPassed, ...mergedFailed].sort(sortDesc);
+
+  const recentPassed = mergedPassed[0];
+  const lastPassed = mergedPassed.length > 1 ? mergedPassed[mergedPassed.length - 1] : undefined;
+  const recentFailed = mergedFailed[0];
+  const lastFailed = mergedFailed.length > 1 ? mergedFailed[mergedFailed.length - 1] : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -172,7 +146,12 @@ export default function Leaderboard({ user, onLogout }: LeaderboardProps) {
           </div>
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            <span className="text-gray-700 font-medium">{user.name}</span>
+            <button
+              onClick={() => navigate('/recruiter/profile')}
+              className="text-gray-700 font-medium hover:text-blue-600 transition"
+            >
+              {user.name}
+            </button>
             <button
               onClick={onLogout}
               className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-red-600 transition"
@@ -185,156 +164,106 @@ export default function Leaderboard({ user, onLogout }: LeaderboardProps) {
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-2">
-            <Award className="w-8 h-8 text-yellow-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Leaderboard</h1>
-          </div>
-          <p className="text-gray-600">Senior Frontend Developer - Top Performers</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-lg p-6 text-white">
-            <Medal className="w-8 h-8 mb-3" />
-            <div className="text-2xl font-bold mb-1">92%</div>
-            <div className="text-yellow-100 text-sm">Top Score</div>
-            <div className="text-sm font-medium mt-2">Alice Johnson</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-            <div className="text-gray-600 text-sm mb-2">Average Score</div>
-            <div className="text-3xl font-bold text-gray-900">79%</div>
-            <div className="flex items-center space-x-1 text-green-600 text-sm mt-2">
-              <TrendingUp className="w-4 h-4" />
-              <span>+3% from last batch</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-            <div className="text-gray-600 text-sm mb-2">Shortlisted</div>
-            <div className="text-3xl font-bold text-gray-900">3</div>
-            <div className="text-sm text-gray-600 mt-2">Top performers</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-            <div className="text-gray-600 text-sm mb-2">Total Candidates</div>
-            <div className="text-3xl font-bold text-gray-900">127</div>
-            <div className="text-sm text-gray-600 mt-2">8 shown below</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search candidates..."
-                  className="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Filter className="w-5 h-5 text-gray-600" />
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <aside className="lg:col-span-3">
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 sticky top-6">
+              <div className="text-sm font-semibold text-gray-700">Pages</div>
+              <div className="mt-3 space-y-2">
+                <button
+                  onClick={() => navigate(`/recruiter/assessment/${assessmentId}`)}
+                  className="w-full text-left px-3 py-2 rounded-lg border transition border-gray-200 text-gray-700 hover:bg-gray-50"
                 >
-                  <option value="all">All Status</option>
-                  <option value="shortlisted">Shortlisted</option>
-                  <option value="under_review">Under Review</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+                  Assessment Description
+                </button>
+                <button
+                  onClick={() => navigate(`/recruiter/assessment/${assessmentId}`)}
+                  className="w-full text-left px-3 py-2 rounded-lg border transition border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  Applied Candidates
+                </button>
+                <button
+                  onClick={() => navigate(`/recruiter/assessment/${assessmentId}`)}
+                  className="w-full text-left px-3 py-2 rounded-lg border transition border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  Shortlisted Candidates
+                </button>
+                <button
+                  onClick={() => navigate(`/recruiter/assessment/${assessmentId}`)}
+                  className="w-full text-left px-3 py-2 rounded-lg border transition border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  Assessment Applied Candidates
+                </button>
+                <button
+                  onClick={() => navigate(`/recruiter/assessment/${assessmentId}`)}
+                  className="w-full text-left px-3 py-2 rounded-lg border transition border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  AI Interviewed Candidates
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 rounded-lg border transition bg-blue-50 border-blue-200 text-blue-700"
+                >
+                  Leaderboard
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          <div className="lg:col-span-9">
+            <div className="mb-8">
+              <div className="flex items-center space-x-3 mb-2">
+                <Award className="w-8 h-8 text-yellow-600" />
+                <h1 className="text-3xl font-bold text-gray-900">Leaderboard</h1>
+              </div>
+              <p className="text-gray-600">
+                {assessment?.title || 'Assessment'} - Candidates ranked by score
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Candidate</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Source</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Score</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Passed</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Failed</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {mergedAll.map((entry) => (
+                      <tr key={`${entry.candidateId}-${entry.result}`} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 font-semibold text-gray-900">{entry.name}</td>
+                        <td className="px-6 py-4 text-gray-600">{entry.email}</td>
+                        <td className="px-6 py-4 text-gray-600">{entry.source}</td>
+                        <td className="px-6 py-4 text-gray-900 font-semibold">{entry.score}%</td>
+                        <td className="px-6 py-4">
+                          {entry.result === 'passed' ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                              passed
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {entry.result === 'failed' ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                              failed
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Rank</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Candidate</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Overall</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Skills</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Interview</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trend</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredCandidates.map((candidate) => (
-                  <tr key={candidate.rank} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        {getRankIcon(candidate.rank)}
-                        <span className="font-bold text-gray-900 text-lg">{candidate.rank}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-semibold text-gray-900">{candidate.name}</div>
-                        <div className="text-sm text-gray-600">{candidate.email}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <div className={`text-2xl font-bold ${
-                          candidate.overallScore >= 80 ? 'text-green-600' :
-                          candidate.overallScore >= 60 ? 'text-orange-600' :
-                          'text-red-600'
-                        }`}>
-                          {candidate.overallScore}%
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-gray-600">React:</span>
-                          <span className="font-semibold text-gray-900 ml-1">{candidate.skills.react}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">TS:</span>
-                          <span className="font-semibold text-gray-900 ml-1">{candidate.skills.typescript}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Node:</span>
-                          <span className="font-semibold text-gray-900 ml-1">{candidate.skills.node}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Test:</span>
-                          <span className="font-semibold text-gray-900 ml-1">{candidate.skills.testing}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-blue-600">{candidate.interviewScore}%</span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{candidate.timeSpent} min</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusStyle(candidate.status)}`}>
-                        {candidate.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {candidate.trend === 'up' && <TrendingUp className="w-5 h-5 text-green-600" />}
-                      {candidate.trend === 'down' && <TrendingDown className="w-5 h-5 text-red-600" />}
-                      {candidate.trend === 'same' && <div className="w-5 h-0.5 bg-gray-400"></div>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredCandidates.length === 0 && (
-            <div className="text-center py-12">
-              <Award className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No candidates found matching your criteria</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -57,7 +57,12 @@ export default function AssessmentDetails({ user, onLogout }: AssessmentDetailsP
           </div>
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            <span className="text-gray-700 font-medium">{user.name}</span>
+            <button
+              onClick={() => navigate('/candidate/profile')}
+              className="text-gray-700 font-medium hover:text-blue-600 transition"
+            >
+              {user.name}
+            </button>
             <button
               onClick={onLogout}
               className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-red-600 transition"
