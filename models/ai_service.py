@@ -74,6 +74,26 @@ def get_or_load_model():
     return _model_cache
 
 
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint - API information"""
+    return jsonify({
+        "service": "AI Model Service",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "match_application": "/api/match-application",
+            "generate_assessment": "/api/generate-assessment",
+            "score_assessment": "/api/score-assessment",
+            "parse_pdf": "/api/parse-pdf",
+            "execute_code": "/api/execute-code",
+            "analyze_jd": "/api/analyze-jd"
+        },
+        "documentation": "See README.md for API usage"
+    }), 200
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
