@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: starter
     buildCommand: pip install -r requirements.txt && python -m spacy download en_core_web_sm
-    startCommand: cd models && gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 ai_service:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 ai_service:app
     envVars:
       - key: GEMINI_API_KEY
         sync: false
