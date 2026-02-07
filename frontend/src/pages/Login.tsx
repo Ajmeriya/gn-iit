@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Zap, Mail, Lock, LogIn } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import { login } from '../data/api';
 
 interface LoginProps {
   onLogin: (user: { id: string; email: string; role: 'recruiter' | 'candidate'; name: string }) => void;
@@ -20,19 +21,12 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const authUser = await login({ email, password });
 
-      const mockUser = {
-        id: '1',
-        email: email,
-        role: email.includes('recruiter') ? 'recruiter' as const : 'candidate' as const,
-        name: email.split('@')[0]
-      };
-
-      onLogin(mockUser);
-      navigate(mockUser.role === 'recruiter' ? '/recruiter' : '/candidate');
+      onLogin(authUser);
+      navigate(authUser.role === 'recruiter' ? '/recruiter' : '/candidate');
     } catch (err) {
-      setError('Login failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -68,9 +62,6 @@ export default function Login({ onLogin }: LoginProps) {
                   required
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Tip: Use 'recruiter@...' for recruiter role or 'candidate@...' for candidate
-              </p>
             </div>
 
             <div>

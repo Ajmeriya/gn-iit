@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Plus, Users, FileText, BarChart3, LogOut, Search, Calendar, TrendingUp } from 'lucide-react';
+import { Zap, Plus, Users, FileText, BarChart3, LogOut, Search, Calendar } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { getApplicationsForAssessment, getAssessments, seedAssessments } from '../data/storage';
+import { getRecruiterDashboard, RecruiterAssessmentSummary, RecruiterDashboardStats } from '../data/api';
 
 interface User {
   id: string;
@@ -19,28 +19,48 @@ interface RecruiterDashboardProps {
 export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboardProps) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed'>('all');
 
-  const [assessments, setAssessments] = useState(getAssessments());
+  const [assessments, setAssessments] = useState<RecruiterAssessmentSummary[]>([]);
+  const [statsData, setStatsData] = useState<RecruiterDashboardStats>({
+    activeAssessments: 0,
+    totalCandidates: 0,
+    topPerformers: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    seedAssessments();
-    setAssessments(getAssessments());
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+        const response = await getRecruiterDashboard();
+        setAssessments(response.assessments);
+        setStatsData(response.stats);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load recruiter dashboard.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
   }, []);
 
-  const totalCandidates = assessments.reduce((sum, assessment) => sum + getApplicationsForAssessment(assessment.id).length, 0);
-  const activeCount = assessments.filter(assessment => assessment.status === 'active').length;
-
   const stats = [
-    { label: 'Active Assessments', value: String(activeCount), icon: <FileText className="w-6 h-6" />, color: 'blue' },
-    { label: 'Total Candidates', value: String(totalCandidates), icon: <Users className="w-6 h-6" />, color: 'green' },
-    { label: 'Avg. Score', value: assessments.length ? `${Math.round(assessments.reduce((sum, assessment) => sum + assessment.avgScore, 0) / assessments.length)}%` : '0%', icon: <TrendingUp className="w-6 h-6" />, color: 'orange' },
-    { label: 'Top Performers', value: '42', icon: <BarChart3 className="w-6 h-6" />, color: 'purple' }
+    { label: 'Active Assessments', value: String(statsData.activeAssessments), icon: <FileText className="w-6 h-6" />, color: 'blue' },
+    { label: 'Total Candidates', value: String(statsData.totalCandidates), icon: <Users className="w-6 h-6" />, color: 'green' },
+    { label: 'Top Performers', value: String(statsData.topPerformers), icon: <BarChart3 className="w-6 h-6" />, color: 'purple' }
   ];
 
-  const filteredAssessments = assessments.filter(assessment =>
-    assessment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    assessment.role.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAssessments = assessments.filter(assessment => {
+    const matchesSearch =
+      assessment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      assessment.role.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || assessment.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,7 +72,12 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
           </div>
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            <span className="text-gray-700 font-medium">{user.name}</span>
+            <button
+              onClick={() => navigate('/recruiter/profile')}
+              className="text-gray-700 font-medium hover:text-blue-600 transition"
+            >
+              {user.name}
+            </button>
             <button
               onClick={onLogout}
               className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-red-600 transition"
@@ -65,12 +90,17 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Recruiter Dashboard</h1>
           <p className="text-gray-600">Manage assessments and evaluate candidates</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {stats.map((stat, index) => (
             <div key={index} className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
               <div className={`text-${stat.color}-600 mb-3`}>{stat.icon}</div>
@@ -92,15 +122,29 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
                 <span>Create Assessment</span>
               </button>
             </div>
-            <div className="mt-4 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search assessments..."
-                className="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              />
+            <div className="mt-4 flex flex-col md:flex-row md:items-center md:space-x-4 space-y-3 md:space-y-0">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search assessments..."
+                  className="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-semibold text-gray-600">Filter:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'closed')}
+                  className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                >
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="closed">Deactivated</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -121,9 +165,6 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Avg Score
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Created
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -133,7 +174,11 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredAssessments.map((assessment) => (
-                  <tr key={assessment.id} className="hover:bg-gray-50 transition">
+                  <tr
+                    key={assessment.id}
+                    className="hover:bg-gray-50 transition cursor-pointer"
+                    onClick={() => navigate(`/recruiter/assessment/${assessment.id}`)}
+                  >
                     <td className="px-6 py-4">
                       <div className="font-semibold text-gray-900">{assessment.title}</div>
                     </td>
@@ -141,7 +186,7 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2 text-gray-700">
                         <Users className="w-4 h-4" />
-                        <span className="font-medium">{getApplicationsForAssessment(assessment.id).length}</span>
+                        <span className="font-medium">{assessment.candidateCount}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -156,31 +201,27 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {assessment.avgScore > 0 ? (
-                        <span className="font-semibold text-gray-900">{assessment.avgScore}%</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
                       <div className="flex items-center space-x-2 text-gray-600 text-sm">
                         <Calendar className="w-4 h-4" />
-                        <span>{new Date(assessment.createdAt).toLocaleDateString()}</span>
+                        <span>{assessment.createdAt ? new Date(assessment.createdAt).toLocaleDateString() : '—'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
                         <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/recruiter/assessment/${assessment.id}`);
+                          }}
+                          className="px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg font-medium text-sm transition dark:text-gray-100 dark:hover:bg-gray-700"
+                        >
+                          View/Edit
+                        </button>
+                        <button
                           onClick={() => navigate(`/recruiter/results/${assessment.id}`)}
                           className="px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg font-medium text-sm transition"
                         >
                           View Results
-                        </button>
-                        <button
-                          onClick={() => navigate(`/recruiter/leaderboard/${assessment.id}`)}
-                          className="px-3 py-1.5 text-green-600 hover:bg-green-50 rounded-lg font-medium text-sm transition"
-                        >
-                          Leaderboard
                         </button>
                       </div>
                     </td>
@@ -190,7 +231,7 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
             </table>
           </div>
 
-          {filteredAssessments.length === 0 && (
+          {!loading && filteredAssessments.length === 0 && (
             <div className="text-center py-12">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">No assessments found</p>

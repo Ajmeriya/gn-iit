@@ -5,8 +5,14 @@ export interface Assessment {
   title: string;
   role: string;
   company: string;
+  description?: string;
   duration: number;
   questions: number;
+  questionConfig?: {
+    mcq: { count: number; timeMinutes: number };
+    descriptive: { count: number; timeMinutes: number };
+    dsa: { count: number; timeMinutes: number };
+  };
   status: AssessmentStatus;
   createdAt: string;
   avgScore: number;
@@ -17,6 +23,25 @@ export interface Assessment {
 }
 
 export type ApplicationStatus = 'shortlisted' | 'rejected';
+
+export interface AssessmentQuestion {
+  id: string;
+  type: 'mcq' | 'subjective' | 'coding';
+  question: string;
+  options?: string[];
+  correctAnswer?: string;
+  testCases?: { input: string; output: string }[];
+}
+
+export interface AssessmentSubmission {
+  assessmentId: string;
+  candidateId: string;
+  questions: AssessmentQuestion[];
+  answers: Record<string, any>;
+  score: number;
+  result: 'passed' | 'failed';
+  submittedAt: string;
+}
 
 export interface Application {
   id: string;
@@ -36,6 +61,8 @@ export interface Application {
 const ASSESSMENTS_KEY = 'assessments';
 const APPLICATIONS_KEY = 'applications';
 const COMPLETIONS_KEY = 'assessment-completions';
+const INTERVIEW_COMPLETIONS_KEY = 'interview-completions';
+const SUBMISSIONS_KEY = 'assessment-submissions';
 
 const readStorage = <T>(key: string, fallback: T): T => {
   if (typeof window === 'undefined') return fallback;
@@ -59,6 +86,12 @@ type CompletionRecord = {
   completedAt: string;
 };
 
+type InterviewCompletionRecord = {
+  assessmentId: string;
+  candidateId: string;
+  completedAt: string;
+};
+
 export const seedAssessments = () => {
   const existing = readStorage<Assessment[]>(ASSESSMENTS_KEY, []);
   if (existing.length > 0) return;
@@ -70,6 +103,7 @@ export const seedAssessments = () => {
       title: 'Senior Frontend Developer',
       role: 'React Developer',
       company: 'Tech Corp',
+      description: 'Build responsive UIs, collaborate with design, and deliver high-quality frontend features. Assessment covers React, TypeScript, and APIs.',
       duration: 90,
       questions: 45,
       status: 'active',
@@ -85,6 +119,7 @@ export const seedAssessments = () => {
       title: 'Full Stack Engineer',
       role: 'MERN Stack',
       company: 'StartupX',
+      description: 'End-to-end product engineering across frontend and backend. Assessment includes Node.js, React, and database concepts.',
       duration: 120,
       questions: 60,
       status: 'active',
@@ -100,6 +135,7 @@ export const seedAssessments = () => {
       title: 'AI ML Engineer',
       role: 'AI ML Stack',
       company: 'AI-X',
+      description: 'Develop ML pipelines and deploy models. Assessment focuses on Python, ML fundamentals, and data analysis.',
       duration: 120,
       questions: 60,
       status: 'active',
@@ -115,6 +151,7 @@ export const seedAssessments = () => {
       title: 'Backend Developer',
       role: 'Node.js',
       company: 'Cloud Systems',
+      description: 'Design APIs, work with databases, and optimize backend performance. Assessment covers Node.js, SQL, and APIs.',
       duration: 75,
       questions: 40,
       status: 'active',
@@ -137,6 +174,15 @@ export const getAssessments = (): Assessment[] => {
 export const saveAssessment = (assessment: Assessment): Assessment[] => {
   const assessments = getAssessments();
   const updated = [assessment, ...assessments];
+  writeStorage(ASSESSMENTS_KEY, updated);
+  return updated;
+};
+
+export const updateAssessment = (assessmentId: string, updates: Partial<Assessment>) => {
+  const assessments = getAssessments();
+  const updated = assessments.map(assessment =>
+    assessment.id === assessmentId ? { ...assessment, ...updates } : assessment
+  );
   writeStorage(ASSESSMENTS_KEY, updated);
   return updated;
 };
@@ -165,6 +211,14 @@ const getCompletions = (): CompletionRecord[] => {
   return readStorage<CompletionRecord[]>(COMPLETIONS_KEY, []);
 };
 
+const getInterviewCompletions = (): InterviewCompletionRecord[] => {
+  return readStorage<InterviewCompletionRecord[]>(INTERVIEW_COMPLETIONS_KEY, []);
+};
+
+const getSubmissions = (): AssessmentSubmission[] => {
+  return readStorage<AssessmentSubmission[]>(SUBMISSIONS_KEY, []);
+};
+
 export const markAssessmentCompleted = (assessmentId: string, candidateId: string) => {
   const completions = getCompletions();
   const exists = completions.some(item => item.assessmentId === assessmentId && item.candidateId === candidateId);
@@ -178,6 +232,43 @@ export const markAssessmentCompleted = (assessmentId: string, candidateId: strin
 
 export const isAssessmentCompleted = (assessmentId: string, candidateId: string) => {
   return getCompletions().some(item => item.assessmentId === assessmentId && item.candidateId === candidateId);
+};
+
+export const getAssessmentCompletionsForAssessment = (assessmentId: string) => {
+  return getCompletions().filter(item => item.assessmentId === assessmentId);
+};
+
+export const markInterviewCompleted = (assessmentId: string, candidateId: string) => {
+  const completions = getInterviewCompletions();
+  const exists = completions.some(item => item.assessmentId === assessmentId && item.candidateId === candidateId);
+  if (exists) return;
+  const updated = [
+    { assessmentId, candidateId, completedAt: new Date().toISOString() },
+    ...completions
+  ];
+  writeStorage(INTERVIEW_COMPLETIONS_KEY, updated);
+};
+
+export const getInterviewCompletionsForAssessment = (assessmentId: string) => {
+  return getInterviewCompletions().filter(item => item.assessmentId === assessmentId);
+};
+
+export const saveAssessmentSubmission = (submission: AssessmentSubmission) => {
+  const submissions = getSubmissions();
+  const filtered = submissions.filter(
+    item => !(item.assessmentId === submission.assessmentId && item.candidateId === submission.candidateId)
+  );
+  const updated = [submission, ...filtered];
+  writeStorage(SUBMISSIONS_KEY, updated);
+  return updated;
+};
+
+export const getAssessmentSubmissionForCandidate = (assessmentId: string, candidateId: string) => {
+  return getSubmissions().find(item => item.assessmentId === assessmentId && item.candidateId === candidateId);
+};
+
+export const getAssessmentSubmissionsForAssessment = (assessmentId: string) => {
+  return getSubmissions().filter(item => item.assessmentId === assessmentId);
 };
 
 export const evaluateApplication = (params: {

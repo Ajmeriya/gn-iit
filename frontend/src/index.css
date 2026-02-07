@@ -4,7 +4,7 @@
 
 /* Dark theme overrides */
 html.dark body {
-	background-color: #0b1220;
+	background-color: #0f172a;
 	color: #e2e8f0;
 }
 
@@ -25,7 +25,7 @@ html.dark .bg-blue-50 {
 }
 
 html.dark .text-gray-900 {
-	color: #f8fafc;
+	color: #ffffff;
 }
 
 html.dark .text-gray-700 {
