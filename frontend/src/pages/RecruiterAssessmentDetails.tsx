@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, LogOut, Save, Pencil, Zap } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { getApplicationsForAssessment, getAssessmentSubmissionsForAssessment, getAssessments, updateAssessment } from '../data/storage';
+import {
+  getAssessmentApplications,
+  getAssessmentDetails,
+  getAssessmentSubmissions,
+  updateAssessment as updateAssessmentApi,
+  AssessmentApplication,
+  AssessmentSubmission
+} from '../data/api';
 
 interface User {
   id: string;
@@ -43,6 +50,10 @@ export default function RecruiterAssessmentDetails({ user, onLogout }: Recruiter
   const [activePage, setActivePage] = useState<'description' | 'applied' | 'shortlisted' | 'passed' | 'interviewed'>('description');
   const [resultFilter, setResultFilter] = useState<'all' | 'passed' | 'failed'>('all');
   const [interviewFilter, setInterviewFilter] = useState<'all' | 'passed' | 'failed'>('all');
+  const [appliedCandidates, setAppliedCandidates] = useState<AssessmentApplication[]>([]);
+  const [assessmentSubmissions, setAssessmentSubmissions] = useState<AssessmentSubmission[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [aiQuestions, setAiQuestions] = useState<AiQuestion[]>([
     {
       id: 'q1',
@@ -66,125 +77,88 @@ export default function RecruiterAssessmentDetails({ user, onLogout }: Recruiter
   ]);
 
   useEffect(() => {
-    const assessment = getAssessments().find(item => item.id === assessmentId);
-    if (!assessment) return;
-    setTitle(assessment.title);
-    setRole(assessment.role);
-    setCompany(assessment.company);
-    setStatus(assessment.status);
-    setDescription(assessment.description || '');
-    setDuration(assessment.duration);
-    setSkills((assessment.requiredSkills || []).join(', '));
-    setMinExperience(assessment.minExperience || 0);
-    setMinMatchScore(assessment.minMatchScore || 0);
-    setIncludeInterview(Boolean(assessment.includeInterview));
+    const loadAssessment = async () => {
+      if (!assessmentId) return;
+      try {
+        setLoading(true);
+        setError('');
+        const [details, applications, submissions] = await Promise.all([
+          getAssessmentDetails(assessmentId),
+          getAssessmentApplications(assessmentId),
+          getAssessmentSubmissions(assessmentId)
+        ]);
+
+        setTitle(details.title);
+        setRole(details.role);
+        setCompany(details.company);
+        setStatus(details.status);
+        setDescription(details.description || '');
+        setDuration(details.duration || 0);
+        setSkills((details.requiredSkills || []).join(', '));
+        setMinExperience(details.minExperience || 0);
+        setMinMatchScore(details.minMatchScore || 0);
+        setIncludeInterview(Boolean(details.includeInterview));
+        setAppliedCandidates(applications);
+        setAssessmentSubmissions(submissions);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load assessment.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAssessment();
   }, [assessmentId]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!assessmentId) return;
-    updateAssessment(assessmentId, {
-      title,
-      role,
-      company,
-      status,
-      description,
-      duration,
-      requiredSkills: skills.split(',').map(item => item.trim()).filter(Boolean),
-      minExperience,
-      minMatchScore,
-      includeInterview
-    });
-    setSaved(true);
-    setIsEditing(false);
-    setTimeout(() => setSaved(false), 1500);
+    try {
+      setError('');
+      await updateAssessmentApi(assessmentId, {
+        title,
+        role,
+        company,
+        status,
+        description,
+        duration,
+        requiredSkills: skills.split(',').map(item => item.trim()).filter(Boolean),
+        minExperience,
+        minMatchScore,
+        includeInterview
+      });
+      setSaved(true);
+      setIsEditing(false);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save assessment.');
+    }
   };
-
-  const appliedCandidates = useMemo(() => {
-    if (!assessmentId) return [];
-    return getApplicationsForAssessment(assessmentId);
-  }, [assessmentId]);
-
-  const assessmentSubmissions = useMemo(() => {
-    if (!assessmentId) return [];
-    return getAssessmentSubmissionsForAssessment(assessmentId);
-  }, [assessmentId]);
 
   const filteredSubmissions = useMemo(() => {
     if (resultFilter === 'all') return assessmentSubmissions;
     return assessmentSubmissions.filter(item => item.result === resultFilter);
   }, [assessmentSubmissions, resultFilter]);
 
-  const staticAppliedCandidates = [
-    {
-      candidateId: 'static-1',
-      name: 'Aarav Mehta',
-      email: 'aarav.mehta@example.com',
-      result: 'passed' as const,
-      score: 82,
-      submittedAt: new Date().toISOString()
-    },
-    {
-      candidateId: 'static-2',
-      name: 'Diya Sharma',
-      email: 'diya.sharma@example.com',
-      result: 'failed' as const,
-      score: 54,
-      submittedAt: new Date().toISOString()
-    },
-    {
-      candidateId: 'static-3',
-      name: 'Kabir Patel',
-      email: 'kabir.patel@example.com',
-      result: 'passed' as const,
-      score: 76,
-      submittedAt: new Date().toISOString()
-    }
-  ];
+  const displayedSubmissions = filteredSubmissions.map((submission) => {
+    const candidate = appliedCandidates.find(item => item.candidateId === submission.candidateId);
+    return {
+      candidateId: submission.candidateId,
+      name: candidate?.name || 'Candidate',
+      email: candidate?.email || '-',
+      result: submission.result,
+      score: submission.score,
+      submittedAt: submission.submittedAt
+    };
+  });
 
-  const displayedSubmissions = filteredSubmissions.length > 0
-    ? filteredSubmissions.map((submission) => {
-        const candidate = appliedCandidates.find(item => item.candidateId === submission.candidateId);
-        return {
-          candidateId: submission.candidateId,
-          name: candidate?.name || 'Candidate',
-          email: candidate?.email || '-',
-          result: submission.result,
-          score: submission.score,
-          submittedAt: submission.submittedAt
-        };
-      })
-    : staticAppliedCandidates.filter(item => resultFilter === 'all' || item.result === resultFilter);
-
-  const staticInterviewedCandidates = [
-    {
-      candidateId: 'static-interview-1',
-      name: 'Neha Kapoor',
-      email: 'neha.kapoor@example.com',
-      result: 'passed' as const,
-      score: 86,
-      submittedAt: new Date().toISOString()
-    },
-    {
-      candidateId: 'static-interview-2',
-      name: 'Sahil Nair',
-      email: 'sahil.nair@example.com',
-      result: 'failed' as const,
-      score: 49,
-      submittedAt: new Date().toISOString()
-    },
-    {
-      candidateId: 'static-interview-3',
-      name: 'Riya Sen',
-      email: 'riya.sen@example.com',
-      result: 'passed' as const,
-      score: 78,
-      submittedAt: new Date().toISOString()
-    }
-  ];
-
-  const displayedInterviewedCandidates = staticInterviewedCandidates.filter(
-    item => interviewFilter === 'all' || item.result === interviewFilter
-  );
+  const displayedInterviewedCandidates: Array<{
+    candidateId: string;
+    name: string;
+    email: string;
+    result: 'passed' | 'failed';
+    score: number;
+    submittedAt: string;
+  }> = [];
 
   const regenerateAiQuestions = () => {
     setAiQuestions([
@@ -223,33 +197,7 @@ export default function RecruiterAssessmentDetails({ user, onLogout }: Recruiter
     }));
   };
 
-  const staticShortlistedCandidates = [
-    {
-      candidateId: 'static-shortlist-1',
-      name: 'Ishaan Verma',
-      email: 'ishaan.verma@example.com',
-      experienceYears: 3,
-      score: 88
-    },
-    {
-      candidateId: 'static-shortlist-2',
-      name: 'Nisha Rao',
-      email: 'nisha.rao@example.com',
-      experienceYears: 2,
-      score: 81
-    },
-    {
-      candidateId: 'static-shortlist-3',
-      name: 'Rahul Iyer',
-      email: 'rahul.iyer@example.com',
-      experienceYears: 4,
-      score: 93
-    }
-  ];
-
-  const displayedShortlistedCandidates = appliedCandidates.filter(candidate => candidate.status === 'shortlisted').length > 0
-    ? appliedCandidates.filter(candidate => candidate.status === 'shortlisted')
-    : staticShortlistedCandidates;
+  const displayedShortlistedCandidates = appliedCandidates.filter(candidate => candidate.status === 'shortlisted');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -287,6 +235,14 @@ export default function RecruiterAssessmentDetails({ user, onLogout }: Recruiter
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+        {loading && (
+          <div className="mb-6 text-sm text-gray-500">Loading assessment...</div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <aside className="lg:col-span-3">
             <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 sticky top-6">

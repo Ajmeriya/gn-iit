@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, LogOut, Search, FileText, Clock, CheckCircle, XCircle, Play, Award } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { Assessment, Application, getApplicationForCandidate, getAssessments, isAssessmentCompleted, seedAssessments } from '../data/storage';
+import {
+  AssessmentApplication,
+  AssessmentListItem,
+  getCandidateDashboard
+} from '../data/api';
 
 interface User {
   id: string;
@@ -20,21 +24,42 @@ export default function CandidateDashboard({ user, onLogout }: CandidateDashboar
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [assessments, setAssessments] = useState<AssessmentListItem[]>([]);
+  const [applications, setApplications] = useState<AssessmentApplication[]>([]);
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    seedAssessments();
-    setAssessments(getAssessments());
-  }, []);
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await getCandidateDashboard(user.id);
+        setAssessments(response.assessments || []);
+        setApplications(response.applications || []);
+        setCompletedIds(response.completedAssessmentIds || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load assessments.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, [user.id]);
 
   const filteredAssessments = assessments.filter(assessment =>
     assessment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     assessment.company.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getApplication = (assessmentId: string): Application | undefined => {
-    return getApplicationForCandidate(assessmentId, user.id);
-  };
+  const applicationMap = useMemo(() => {
+    return applications.reduce<Record<string, AssessmentApplication>>((acc, app) => {
+      acc[app.assessmentId] = app;
+      return acc;
+    }, {});
+  }, [applications]);
 
   const getStatusIcon = (status: 'not_applied' | 'shortlisted' | 'rejected') => {
     switch (status) {
@@ -60,9 +85,9 @@ export default function CandidateDashboard({ user, onLogout }: CandidateDashboar
 
   const stats = [
     { label: 'Available', value: assessments.length },
-    { label: 'Shortlisted', value: assessments.filter(a => getApplication(a.id)?.status === 'shortlisted').length },
-    { label: 'Rejected', value: assessments.filter(a => getApplication(a.id)?.status === 'rejected').length },
-    { label: 'Avg Score', value: '79%' }
+    { label: 'Shortlisted', value: assessments.filter(a => applicationMap[a.id]?.status === 'shortlisted').length },
+    { label: 'Rejected', value: assessments.filter(a => applicationMap[a.id]?.status === 'rejected').length },
+    { label: 'Avg Score', value: '—' }
   ];
 
 
@@ -94,6 +119,14 @@ export default function CandidateDashboard({ user, onLogout }: CandidateDashboar
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+        {loading && (
+          <div className="mb-6 text-sm text-gray-500">Loading assessments...</div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Assessments</h1>
           <p className="text-gray-600">View and complete your job assessments</p>
@@ -125,8 +158,8 @@ export default function CandidateDashboard({ user, onLogout }: CandidateDashboar
 
           <div className="divide-y divide-gray-200">
             {filteredAssessments.map((assessment) => {
-              const application = getApplication(assessment.id);
-              const isCompleted = isAssessmentCompleted(assessment.id, user.id);
+              const application = applicationMap[assessment.id];
+              const isCompleted = completedIds.includes(assessment.id);
               const status = application ? application.status : 'not_applied';
 
               return (

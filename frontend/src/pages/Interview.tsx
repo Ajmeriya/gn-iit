@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Zap, LogOut, MessageCircle, Send, Mic, MicOff, Brain, Clock } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { isAssessmentCompleted, markInterviewCompleted } from '../data/storage';
+import { getAssessmentCompletion, markInterviewCompletion } from '../data/api';
 
 interface User {
   id: string;
@@ -26,7 +26,8 @@ interface Message {
 export default function Interview({ user, onLogout }: InterviewProps) {
   const navigate = useNavigate();
   const { assessmentId } = useParams();
-  const isCompleted = assessmentId ? isAssessmentCompleted(assessmentId, user.id) : false;
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -44,6 +45,21 @@ export default function Interview({ user, onLogout }: InterviewProps) {
   ];
 
   useEffect(() => {
+    const loadCompletion = async () => {
+      if (!assessmentId) return;
+      try {
+        setLoading(true);
+        const response = await getAssessmentCompletion(assessmentId, user.id);
+        setIsCompleted(response.completed);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCompletion();
+  }, [assessmentId, user.id]);
+
+  useEffect(() => {
     if (!isCompleted) return;
     const initialMessage: Message = {
       id: '1',
@@ -59,6 +75,14 @@ export default function Interview({ user, onLogout }: InterviewProps) {
 
     return () => clearInterval(timer);
   }, [isCompleted, user.name]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="text-gray-600">Loading interview...</div>
+      </div>
+    );
+  }
 
   if (!isCompleted) {
     return (
@@ -120,7 +144,7 @@ export default function Interview({ user, onLogout }: InterviewProps) {
 
   const handleEndInterview = () => {
     if (assessmentId) {
-      markInterviewCompleted(assessmentId, user.id);
+      markInterviewCompletion(assessmentId, user.id);
     }
     navigate('/candidate');
   };

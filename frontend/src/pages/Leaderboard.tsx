@@ -1,8 +1,15 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Zap, LogOut, ArrowLeft, Award } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { getApplicationsForAssessment, getAssessmentSubmissionsForAssessment, getAssessments } from '../data/storage';
+import {
+  AssessmentApplication,
+  AssessmentDetails,
+  AssessmentSubmission,
+  getAssessmentApplications,
+  getAssessmentDetails,
+  getAssessmentSubmissions
+} from '../data/api';
 
 interface User {
   id: string;
@@ -29,80 +36,48 @@ interface ScoreEntry {
 export default function Leaderboard({ user, onLogout }: LeaderboardProps) {
   const navigate = useNavigate();
   const { assessmentId } = useParams();
-  const assessment = getAssessments().find(item => item.id === assessmentId);
+  const [assessment, setAssessment] = useState<AssessmentDetails | null>(null);
+  const [appliedCandidates, setAppliedCandidates] = useState<AssessmentApplication[]>([]);
+  const [assessmentSubmissions, setAssessmentSubmissions] = useState<AssessmentSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const appliedCandidates = useMemo(() => {
-    if (!assessmentId) return [];
-    return getApplicationsForAssessment(assessmentId);
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      if (!assessmentId) return;
+      try {
+        setLoading(true);
+        setError('');
+        const [details, applications, submissions] = await Promise.all([
+          getAssessmentDetails(assessmentId),
+          getAssessmentApplications(assessmentId),
+          getAssessmentSubmissions(assessmentId)
+        ]);
+        setAssessment(details);
+        setAppliedCandidates(applications);
+        setAssessmentSubmissions(submissions);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load leaderboard.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLeaderboard();
   }, [assessmentId]);
 
-  const assessmentSubmissions = useMemo(() => {
-    if (!assessmentId) return [];
-    return getAssessmentSubmissionsForAssessment(assessmentId);
-  }, [assessmentId]);
+  const assessmentEntries: ScoreEntry[] = assessmentSubmissions.map((submission, index) => {
+    const candidate = appliedCandidates.find(item => item.candidateId === submission.candidateId);
+    return {
+      candidateId: submission.candidateId,
+      name: candidate?.name || `Candidate ${index + 1}`,
+      email: candidate?.email || '-',
+      score: submission.score,
+      result: submission.result
+    };
+  });
 
-  const staticAppliedCandidates: ScoreEntry[] = [
-    {
-      candidateId: 'static-1',
-      name: 'Aarav Mehta',
-      email: 'aarav.mehta@example.com',
-      score: 82,
-      result: 'passed'
-    },
-    {
-      candidateId: 'static-2',
-      name: 'Diya Sharma',
-      email: 'diya.sharma@example.com',
-      score: 54,
-      result: 'failed'
-    },
-    {
-      candidateId: 'static-3',
-      name: 'Kabir Patel',
-      email: 'kabir.patel@example.com',
-      score: 76,
-      result: 'passed'
-    }
-  ];
-
-  const staticInterviewedCandidates: ScoreEntry[] = [
-    {
-      candidateId: 'static-interview-1',
-      name: 'Neha Kapoor',
-      email: 'neha.kapoor@example.com',
-      score: 86,
-      result: 'passed'
-    },
-    {
-      candidateId: 'static-interview-2',
-      name: 'Sahil Nair',
-      email: 'sahil.nair@example.com',
-      score: 49,
-      result: 'failed'
-    },
-    {
-      candidateId: 'static-interview-3',
-      name: 'Riya Sen',
-      email: 'riya.sen@example.com',
-      score: 78,
-      result: 'passed'
-    }
-  ];
-
-  const assessmentEntries: ScoreEntry[] = assessmentSubmissions.length > 0
-    ? assessmentSubmissions.map((submission, index) => {
-        const candidate = appliedCandidates.find(item => item.candidateId === submission.candidateId);
-        return {
-          candidateId: submission.candidateId,
-          name: candidate?.name || `Candidate ${index + 1}`,
-          email: candidate?.email || '-',
-          score: submission.score,
-          result: submission.result
-        };
-      })
-    : staticAppliedCandidates;
-
-  const interviewEntries = staticInterviewedCandidates;
+  const interviewEntries: ScoreEntry[] = [];
 
   const sortDesc = (a: ScoreEntry, b: ScoreEntry) => b.score - a.score;
 
@@ -164,6 +139,14 @@ export default function Leaderboard({ user, onLogout }: LeaderboardProps) {
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+        {loading && (
+          <div className="mb-6 text-sm text-gray-500">Loading leaderboard...</div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <aside className="lg:col-span-3">
             <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 sticky top-6">
@@ -259,6 +242,13 @@ export default function Leaderboard({ user, onLogout }: LeaderboardProps) {
                         </td>
                       </tr>
                     ))}
+                    {mergedAll.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-6 text-center text-sm text-gray-500">
+                          No leaderboard data yet.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

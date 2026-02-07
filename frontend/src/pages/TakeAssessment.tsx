@@ -1,9 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Zap, LogOut, Clock, ChevronLeft, ChevronRight, CheckCircle, Code, FileText, List } from 'lucide-react';
 import Editor from '@monaco-editor/react';
-import { AssessmentQuestion, getApplicationForCandidate, getAssessments, markAssessmentCompleted, saveAssessmentSubmission } from '../data/storage';
 import ThemeToggle from '../components/ThemeToggle';
+import {
+  AssessmentApplication,
+  AssessmentDetails as AssessmentDetailsType,
+  AssessmentQuestion,
+  getAssessmentApplication,
+  getAssessmentDetails,
+  getAssessmentQuestions,
+  submitAssessment
+} from '../data/api';
 
 interface User {
   id: string;
@@ -20,8 +28,61 @@ interface TakeAssessmentProps {
 export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) {
   const navigate = useNavigate();
   const { assessmentId } = useParams();
-  const assessment = getAssessments().find(item => item.id === assessmentId);
-  const application = assessmentId ? getApplicationForCandidate(assessmentId, user.id) : undefined;
+  const [assessment, setAssessment] = useState<AssessmentDetailsType | null>(null);
+  const [application, setApplication] = useState<AssessmentApplication | null>(null);
+  const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadAssessment = async () => {
+      if (!assessmentId) return;
+      try {
+        setLoading(true);
+        setError('');
+        const [details, questionsResponse] = await Promise.all([
+          getAssessmentDetails(assessmentId),
+          getAssessmentQuestions(assessmentId)
+        ]);
+        setAssessment(details);
+        setQuestions(questionsResponse);
+
+        const app = await getAssessmentApplication(assessmentId, user.id).catch(() => null);
+        setApplication(app);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load assessment.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAssessment();
+  }, [assessmentId, user.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="text-gray-600">Loading assessment...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
+          <div className="text-2xl font-bold text-gray-900 mb-2">Unable to load assessment</div>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => navigate('/candidate')}
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!assessment || !application || application.status !== 'shortlisted') {
     return (
@@ -43,54 +104,15 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
   }
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [timeLeft, setTimeLeft] = useState(5400);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [code, setCode] = useState('// Write your code here\n');
+  const assessmentQuestions = useMemo(() => questions, [questions]);
 
-  const mockQuestions: AssessmentQuestion[] = [
-    {
-      id: '1',
-      type: 'mcq',
-      question: 'What is the purpose of React hooks?',
-      options: [
-        'To add state and lifecycle features to functional components',
-        'To style React components',
-        'To handle routing in React',
-        'To manage API calls'
-      ],
-      correctAnswer: 'To add state and lifecycle features to functional components'
-    },
-    {
-      id: '2',
-      type: 'mcq',
-      question: 'Which of the following is a valid way to update state in React?',
-      options: [
-        'this.state.value = newValue',
-        'setState({value: newValue})',
-        'updateState(newValue)',
-        'state.value = newValue'
-      ],
-      correctAnswer: 'setState({value: newValue})'
-    },
-    {
-      id: '3',
-      type: 'subjective',
-      question: 'Explain the concept of Virtual DOM in React and how it improves performance.'
-    },
-    {
-      id: '4',
-      type: 'subjective',
-      question: 'Describe the differences between REST and GraphQL APIs. When would you choose one over the other?'
-    },
-    {
-      id: '5',
-      type: 'coding',
-      question: 'Write a function that reverses a string without using built-in reverse methods.',
-      testCases: [
-        { input: 'hello', output: 'olleh' },
-        { input: 'world', output: 'dlrow' }
-      ]
+  useEffect(() => {
+    if (assessment) {
+      setTimeLeft(assessment.duration * 60);
     }
-  ];
+  }, [assessment]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -118,30 +140,41 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
     setAnswers({ ...answers, [questionId]: answer });
   };
 
-  const handleSubmit = () => {
-    if (assessmentId) {
-      const mcqQuestions = mockQuestions.filter(item => item.type === 'mcq' && item.correctAnswer);
-      const correctCount = mcqQuestions.filter(item => answers[item.id] === item.correctAnswer).length;
-      const score = mcqQuestions.length > 0
-        ? Math.round((correctCount / mcqQuestions.length) * 100)
-        : 0;
-      const result: 'passed' | 'failed' = score >= 60 ? 'passed' : 'failed';
-      saveAssessmentSubmission({
-        assessmentId,
+  const handleSubmit = async () => {
+    if (!assessmentId) return;
+    try {
+      await submitAssessment(assessmentId, {
         candidateId: user.id,
-        questions: mockQuestions,
-        answers,
-        score,
-        result,
-        submittedAt: new Date().toISOString()
+        questions: assessmentQuestions,
+        answers
       });
-      markAssessmentCompleted(assessmentId, user.id);
+    } catch {
+      // ignore for now
     }
     navigate('/candidate');
   };
 
-  const question = mockQuestions[currentQuestion];
-  const progress = ((currentQuestion + 1) / mockQuestions.length) * 100;
+  if (assessmentQuestions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
+          <div className="text-2xl font-bold text-gray-900 mb-2">No Questions Available</div>
+          <p className="text-gray-600 mb-6">
+            This assessment does not have any questions yet.
+          </p>
+          <button
+            onClick={() => navigate('/candidate')}
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const question = assessmentQuestions[currentQuestion];
+  const progress = ((currentQuestion + 1) / assessmentQuestions.length) * 100;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -151,7 +184,7 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
             <Zap className="w-8 h-8 text-blue-600" />
             <div>
               <div className="text-xl font-bold text-gray-900">Senior Frontend Developer</div>
-              <div className="text-sm text-gray-600">Question {currentQuestion + 1} of {mockQuestions.length}</div>
+              <div className="text-sm text-gray-600">Question {currentQuestion + 1} of {assessmentQuestions.length}</div>
             </div>
           </div>
           <div className="flex items-center space-x-6">
@@ -254,7 +287,7 @@ export default function TakeAssessment({ user, onLogout }: TakeAssessmentProps) 
                       }}
                     />
                   </div>
-                  {question.testCases && (
+                      {question.testCases && (
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <div className="font-semibold text-gray-900 mb-3">Test Cases:</div>
                       <div className="space-y-2">

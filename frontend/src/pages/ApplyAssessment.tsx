@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, LogOut, Upload, Zap } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { Assessment, Application, evaluateApplication, getAssessments, saveApplication } from '../data/storage';
+import { applyForAssessment, getAssessmentDetails, AssessmentDetails } from '../data/api';
 
 interface User {
   id: string;
@@ -19,7 +19,8 @@ interface ApplyAssessmentProps {
 export default function ApplyAssessment({ user, onLogout }: ApplyAssessmentProps) {
   const navigate = useNavigate();
   const { assessmentId } = useParams();
-  const assessment = getAssessments().find(item => item.id === assessmentId) as Assessment | undefined;
+  const [assessment, setAssessment] = useState<AssessmentDetails | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [formName, setFormName] = useState(user.name || '');
   const [formEmail, setFormEmail] = useState(user.email || '');
@@ -28,6 +29,31 @@ export default function ApplyAssessment({ user, onLogout }: ApplyAssessmentProps
   const [formResume, setFormResume] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    const loadAssessment = async () => {
+      if (!assessmentId) return;
+      try {
+        setLoading(true);
+        const details = await getAssessmentDetails(assessmentId);
+        setAssessment(details);
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : 'Failed to load assessment.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAssessment();
+  }, [assessmentId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="text-gray-600">Loading assessment...</div>
+      </div>
+    );
+  }
 
   if (!assessment) {
     return (
@@ -46,7 +72,7 @@ export default function ApplyAssessment({ user, onLogout }: ApplyAssessmentProps
     );
   }
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (!formName.trim() || !formEmail.trim()) {
       setFormError('Please fill all required fields.');
       return;
@@ -63,29 +89,20 @@ export default function ApplyAssessment({ user, onLogout }: ApplyAssessmentProps
       return;
     }
 
-    const evaluation = evaluateApplication({
-      skills: skillList,
-      experienceYears: formExperience,
-      assessment
-    });
-
-    const application: Application = {
-      id: Date.now().toString(),
-      assessmentId: assessment.id,
-      candidateId: user.id,
-      name: formName,
-      email: formEmail,
-      experienceYears: formExperience,
-      skills: skillList,
-      resumeSummary: formResume.trim() || undefined,
-      resumeFileName: resumeFile.name,
-      status: evaluation.status,
-      score: evaluation.score,
-      createdAt: new Date().toISOString()
-    };
-
-    saveApplication(application);
-    navigate('/candidate');
+    try {
+      await applyForAssessment(assessment.id, {
+        candidateId: user.id,
+        name: formName,
+        email: formEmail,
+        experienceYears: formExperience,
+        skills: skillList,
+        resumeSummary: formResume.trim() || undefined,
+        resumeFileName: resumeFile.name
+      });
+      navigate('/candidate');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to submit application.');
+    }
   };
 
   return (

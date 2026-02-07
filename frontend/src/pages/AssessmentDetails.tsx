@@ -1,7 +1,14 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Calendar, CheckCircle, Clock, FileText, LogOut, ShieldCheck, Target, UserCheck, XCircle, Zap } from 'lucide-react';
-import { getApplicationForCandidate, getAssessments, isAssessmentCompleted } from '../data/storage';
 import ThemeToggle from '../components/ThemeToggle';
+import {
+  AssessmentApplication,
+  AssessmentDetails as AssessmentDetailsType,
+  getAssessmentApplication,
+  getAssessmentCompletion,
+  getAssessmentDetails
+} from '../data/api';
 
 interface User {
   id: string;
@@ -18,9 +25,61 @@ interface AssessmentDetailsProps {
 export default function AssessmentDetails({ user, onLogout }: AssessmentDetailsProps) {
   const navigate = useNavigate();
   const { assessmentId } = useParams();
-  const assessment = getAssessments().find(item => item.id === assessmentId);
-  const application = assessmentId ? getApplicationForCandidate(assessmentId, user.id) : undefined;
-  const isCompleted = assessmentId ? isAssessmentCompleted(assessmentId, user.id) : false;
+  const [assessment, setAssessment] = useState<AssessmentDetailsType | null>(null);
+  const [application, setApplication] = useState<AssessmentApplication | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadDetails = async () => {
+      if (!assessmentId) return;
+      try {
+        setLoading(true);
+        setError('');
+        const [details, completion] = await Promise.all([
+          getAssessmentDetails(assessmentId),
+          getAssessmentCompletion(assessmentId, user.id)
+        ]);
+        setAssessment(details);
+        setIsCompleted(completion.completed);
+
+        const app = await getAssessmentApplication(assessmentId, user.id).catch(() => null);
+        setApplication(app);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load assessment.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDetails();
+  }, [assessmentId, user.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="text-gray-600">Loading assessment...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-lg p-8 max-w-lg w-full text-center">
+          <div className="text-2xl font-bold text-gray-900 mb-2">Unable to load assessment</div>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => navigate('/candidate')}
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!assessment) {
     return (
@@ -107,7 +166,9 @@ export default function AssessmentDetails({ user, onLogout }: AssessmentDetailsP
                   <Calendar className="w-5 h-5 text-blue-600" />
                   <div>
                     <div className="text-sm text-gray-500">Created</div>
-                    <div className="font-semibold text-gray-900">{new Date(assessment.createdAt).toLocaleDateString()}</div>
+                    <div className="font-semibold text-gray-900">
+                      {assessment.createdAt ? new Date(assessment.createdAt).toLocaleDateString() : '—'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -127,7 +188,7 @@ export default function AssessmentDetails({ user, onLogout }: AssessmentDetailsP
                     <span className="font-semibold text-gray-900">Required Skills</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {assessment.requiredSkills.map(skill => (
+                    {(assessment.requiredSkills || []).map(skill => (
                       <span key={skill} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full">
                         {skill}
                       </span>

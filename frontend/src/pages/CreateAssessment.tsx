@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, LogOut, ArrowLeft, Sparkles, FileText, Brain } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { saveAssessment } from '../data/storage';
+import { createAssessment } from '../data/api';
 
 interface User {
   id: string;
@@ -36,6 +36,7 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
   const [mcqTime, setMcqTime] = useState(20);
   const [descriptiveTime, setDescriptiveTime] = useState(30);
   const [dsaTime, setDsaTime] = useState(45);
+  const [error, setError] = useState('');
 
   const handleAnalyzeJD = async () => {
     setLoading(true);
@@ -62,31 +63,35 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
   };
 
   const handleCreateAssessment = async () => {
+    setError('');
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    saveAssessment({
-      id: Date.now().toString(),
-      title: assessmentTitle || generatedData?.role || 'Untitled Assessment',
-      role: generatedData?.role || assessmentTitle,
-      company: user.name || 'Recruiter',
-      description: jobDescription.trim(),
-      duration,
-      questions: mcqCount + descriptiveCount + dsaCount,
-      questionConfig: {
-        mcq: { count: mcqCount, timeMinutes: mcqTime },
-        descriptive: { count: descriptiveCount, timeMinutes: descriptiveTime },
-        dsa: { count: dsaCount, timeMinutes: dsaTime }
-      },
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      avgScore: 0,
-      requiredSkills: requiredSkills.length ? requiredSkills : (generatedData?.skills || []),
-      minExperience,
-      minMatchScore,
-      includeInterview
-    });
-    setLoading(false);
-    navigate('/recruiter');
+    try {
+      await createAssessment({
+        title: assessmentTitle || generatedData?.role || 'Untitled Assessment',
+        role: generatedData?.role || assessmentTitle,
+        company: user.name || 'Recruiter',
+        description: jobDescription.trim(),
+        duration,
+        questions: mcqCount + descriptiveCount + dsaCount,
+        questionConfig: {
+          mcqCount,
+          mcqTimeMinutes: mcqTime,
+          descriptiveCount,
+          descriptiveTimeMinutes: descriptiveTime,
+          dsaCount,
+          dsaTimeMinutes: dsaTime
+        },
+        requiredSkills: requiredSkills.length ? requiredSkills : (generatedData?.skills || []),
+        minExperience,
+        minMatchScore,
+        includeInterview
+      });
+      navigate('/recruiter');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create assessment.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddSkill = () => {
@@ -160,6 +165,12 @@ export default function CreateAssessment({ user, onLogout }: CreateAssessmentPro
             </div>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
 
         {step === 1 && (
           <div className="bg-white rounded-xl shadow-md border border-gray-100 p-8">

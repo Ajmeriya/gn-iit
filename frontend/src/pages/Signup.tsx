@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Zap, Mail, Lock, User, UserCheck } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import { register } from '../data/api';
 
 interface SignupProps {
   onLogin: (user: { id: string; email: string; role: 'recruiter' | 'candidate'; name: string }) => void;
@@ -22,19 +23,12 @@ export default function Signup({ onLogin }: SignupProps) {
     setLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const authUser = await register({ name, email, password, role });
 
-      const newUser = {
-        id: Date.now().toString(),
-        email,
-        role,
-        name
-      };
-
-      onLogin(newUser);
-      navigate(role === 'recruiter' ? '/recruiter' : '/candidate');
+      onLogin(authUser);
+      navigate(authUser.role === 'recruiter' ? '/recruiter' : '/candidate');
     } catch (err) {
-      setError('Signup failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }

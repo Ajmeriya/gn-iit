@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Plus, Users, FileText, BarChart3, LogOut, Search, Calendar } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
-import { getApplicationsForAssessment, getAssessments, seedAssessments } from '../data/storage';
+import { getRecruiterDashboard, RecruiterAssessmentSummary, RecruiterDashboardStats } from '../data/api';
 
 interface User {
   id: string;
@@ -21,20 +21,36 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed'>('all');
 
-  const [assessments, setAssessments] = useState(getAssessments());
+  const [assessments, setAssessments] = useState<RecruiterAssessmentSummary[]>([]);
+  const [statsData, setStatsData] = useState<RecruiterDashboardStats>({
+    activeAssessments: 0,
+    totalCandidates: 0,
+    topPerformers: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    seedAssessments();
-    setAssessments(getAssessments());
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+        const response = await getRecruiterDashboard();
+        setAssessments(response.assessments);
+        setStatsData(response.stats);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load recruiter dashboard.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
   }, []);
 
-  const totalCandidates = assessments.reduce((sum, assessment) => sum + getApplicationsForAssessment(assessment.id).length, 0);
-  const activeCount = assessments.filter(assessment => assessment.status === 'active').length;
-
   const stats = [
-    { label: 'Active Assessments', value: String(activeCount), icon: <FileText className="w-6 h-6" />, color: 'blue' },
-    { label: 'Total Candidates', value: String(totalCandidates), icon: <Users className="w-6 h-6" />, color: 'green' },
-    { label: 'Top Performers', value: '42', icon: <BarChart3 className="w-6 h-6" />, color: 'purple' }
+    { label: 'Active Assessments', value: String(statsData.activeAssessments), icon: <FileText className="w-6 h-6" />, color: 'blue' },
+    { label: 'Total Candidates', value: String(statsData.totalCandidates), icon: <Users className="w-6 h-6" />, color: 'green' },
+    { label: 'Top Performers', value: String(statsData.topPerformers), icon: <BarChart3 className="w-6 h-6" />, color: 'purple' }
   ];
 
   const filteredAssessments = assessments.filter(assessment => {
@@ -74,6 +90,11 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Recruiter Dashboard</h1>
           <p className="text-gray-600">Manage assessments and evaluate candidates</p>
@@ -165,7 +186,7 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2 text-gray-700">
                         <Users className="w-4 h-4" />
-                        <span className="font-medium">{getApplicationsForAssessment(assessment.id).length}</span>
+                        <span className="font-medium">{assessment.candidateCount}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -182,7 +203,7 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2 text-gray-600 text-sm">
                         <Calendar className="w-4 h-4" />
-                        <span>{new Date(assessment.createdAt).toLocaleDateString()}</span>
+                        <span>{assessment.createdAt ? new Date(assessment.createdAt).toLocaleDateString() : '—'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -210,7 +231,7 @@ export default function RecruiterDashboard({ user, onLogout }: RecruiterDashboar
             </table>
           </div>
 
-          {filteredAssessments.length === 0 && (
+          {!loading && filteredAssessments.length === 0 && (
             <div className="text-center py-12">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">No assessments found</p>
