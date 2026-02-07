@@ -1,2 +1,2 @@
-web: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 ai_service:app
+web: PYTHONPATH=/opt/render/project/src/models:$PYTHONPATH gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 ai_service:app
 
