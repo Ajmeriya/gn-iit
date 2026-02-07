@@ -1,0 +1,89 @@
+{
+  "patterns": [
+    {
+      "pattern": "Array + Hashing",
+      "description": "Problems involving frequency counting, lookup, or pair matching",
+      "function_style": "function-based",
+      "allowed_operations": ["lookup", "count", "pairing"],
+      "common_problems": ["Two Sum", "Group Anagrams", "Contains Duplicate", "Longest Consecutive Sequence"]
+    },
+    {
+      "pattern": "Two Pointers",
+      "description": "Using two pointers to traverse array/string from different positions",
+      "function_style": "function-based",
+      "allowed_operations": ["traverse", "compare", "swap"],
+      "common_problems": ["Valid Palindrome", "Two Sum (sorted)", "Container With Most Water", "3Sum"]
+    },
+    {
+      "pattern": "Sliding Window",
+      "description": "Maintaining a window of elements while traversing",
+      "function_style": "function-based",
+      "allowed_operations": ["expand", "shrink", "maintain"],
+      "common_problems": ["Longest Substring Without Repeating Characters", "Minimum Window Substring", "Maximum Average Subarray"]
+    },
+    {
+      "pattern": "Stack",
+      "description": "LIFO-based problems requiring last-in-first-out operations",
+      "function_style": "function-based",
+      "allowed_operations": ["push", "pop", "peek"],
+      "common_problems": ["Valid Parentheses", "Daily Temperatures", "Largest Rectangle in Histogram", "Next Greater Element"]
+    },
+    {
+      "pattern": "Binary Search",
+      "description": "Searching in sorted arrays or applying binary search logic",
+      "function_style": "function-based",
+      "allowed_operations": ["search", "partition", "narrow"],
+      "common_problems": ["Search in Rotated Sorted Array", "Find Peak Element", "Search for Range", "Kth Smallest Element"]
+    },
+    {
+      "pattern": "Recursion / Backtracking",
+      "description": "Basic recursive solutions and backtracking for combinations/permutations",
+      "function_style": "function-based",
+      "allowed_operations": ["recurse", "backtrack", "prune"],
+      "common_problems": ["Generate Parentheses", "Combination Sum", "Subsets", "Permutations"]
+    },
+    {
+      "pattern": "Linked List",
+      "description": "Operations on linked list data structures",
+      "function_style": "function-based",
+      "allowed_operations": ["traverse", "reverse", "merge", "detect_cycle"],
+      "common_problems": ["Reverse Linked List", "Merge Two Sorted Lists", "Linked List Cycle", "Remove Nth Node"]
+    },
+    {
+      "pattern": "Tree Traversal",
+      "description": "DFS and BFS traversal of binary trees",
+      "function_style": "function-based",
+      "allowed_operations": ["dfs", "bfs", "traverse"],
+      "common_problems": ["Maximum Depth of Binary Tree", "Same Tree", "Binary Tree Level Order", "Path Sum"]
+    }
+  ],
+  "test_case_types": {
+    "Normal": {
+      "purpose": "Correct logic validation",
+      "description": "Standard input that tests core algorithm"
+    },
+    "Duplicate": {
+      "purpose": "Collision handling",
+      "description": "Inputs with duplicate values"
+    },
+    "Edge": {
+      "purpose": "Min size handling",
+      "description": "Smallest valid input (empty, single element, etc.)"
+    },
+    "Negative": {
+      "purpose": "Sign handling",
+      "description": "Negative numbers or edge cases with signs"
+    },
+    "Boundary": {
+      "purpose": "Max input handling",
+      "description": "Largest valid input or boundary conditions"
+    }
+  },
+  "test_split": {
+    "public_count": 2,
+    "hidden_count": 4,
+    "public_types": ["Normal"],
+    "hidden_types": ["Duplicate", "Edge", "Negative", "Boundary"]
+  }
+}
+
