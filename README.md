@@ -1,224 +1,166 @@
 # AI-Powered Job Assessment & Screening Platform
 
-An intelligent hiring platform that automatically converts job descriptions into role-specific assessments and evaluates candidates using AI-driven scoring, coding tests, and skill analytics.
+A comprehensive full-stack platform for automated job assessments, candidate screening, and AI-powered resume matching.
 
-Hire based on skills, not resumes.
+## 🏗️ Architecture
 
----
+```
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│  Frontend   │──────│  Backend    │──────│  Model      │──────│  Database   │
+│  (Vercel)   │      │  (Render)   │      │  Service    │      │  (Railway/  │
+│             │      │             │      │  (Render)   │      │   Neon/     │
+│  React + TS │      │  Spring Boot│      │  Python     │      │   Supabase) │
+└─────────────┘      └─────────────┘      └─────────────┘      └─────────────┘
+```
 
-## Overview
+## 📁 Project Structure
 
-Traditional hiring often depends on resumes, which leads to fake claims, mass applications, and time-consuming manual screening. This platform analyzes job descriptions, generates assessments automatically, evaluates candidates fairly, and ranks them using measurable performance.
+```
+AI-Powered-Job-Assessment-Screening-Platform/
+├── frontend/          # React + TypeScript frontend
+├── backend/           # Spring Boot REST API
+├── models/            # Python AI/ML service
+│   ├── ai_service.py           # Main Flask API
+│   ├── ai_resume_matcher.py    # Resume matching AI
+│   ├── assessment_generator.py  # Assessment question generator
+│   ├── assessment_scorer.py    # Assessment scoring
+│   ├── code_executor.py        # DSA code execution
+│   ├── jd_analyzer.py          # Job description analyzer
+│   ├── pdf_to_text.py          # PDF resume parser
+│   ├── dsa_engine/             # DSA question engine
+│   └── tests/                  # Unit tests
+├── examples/          # Example usage scripts
+└── README.md          # This file
+```
 
-In addition to written tests, the platform also features an **AI-powered Interview Engine** that automatically conducts technical interviews. The AI asks role-specific questions, evaluates answers (text or voice), and assigns scores just like a real interviewer, enabling fully automated and unbiased candidate screening.
+## 🚀 Quick Start
 
----
+### Prerequisites
 
-## Key Features
+- **Node.js** 18+ (for frontend)
+- **Java** 17+ (for backend)
+- **Python** 3.11+ (for model service)
+- **PostgreSQL** (or use cloud database)
 
-### Job Description Intelligence
-- Parses job descriptions
-- Extracts required skills and tools
-- Detects experience level
-- Assigns difficulty and weightage
-- Converts requirements into assessment criteria
+### Local Development
 
-### Automated Question Generation
-- Objective questions (MCQs, aptitude)
-- Subjective questions (case studies, scenarios)
-- Programming challenges (coding, debugging, design)
-- Difficulty adjusts based on role and experience
+#### 1. Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-### Smart Candidate Evaluation
-- Automatic MCQ grading
-- Coding judged with test cases
-- AI-based subjective scoring with rubrics
-- Weighted scoring per skill importance
-
-### AI-Powered Interview
-- AI automatically conducts technical interviews
-- Generates questions based on job description
-- Supports text or voice responses
-- Evaluates answers using AI scoring
-- Provides interview feedback and score breakdown
-- Reduces dependency on human interviewers
-
-### Anti-Fake Application Detection
-- Resume vs performance mismatch checks
-- Guess/random attempt detection
-- Code plagiarism checks
-- Bot/repeated attempt detection
-
-### Scoring, Ranking & Leaderboards
-- Overall score
-- Section-wise performance
-- Skill-wise breakdown
-- Ranking and shortlisting
-- Configurable leaderboards
-
-### Analytics & Reports
-- Strengths and weaknesses
-- Skill gap analysis
-- Benchmark comparison
-- Downloadable reports
-
-### Security & Scalability
-- JWT authentication
-- Role-based access control
-- Encrypted data
-- Concurrent assessments support
-- Secure coding sandbox
-
----
-
-## Tech Stack
-
-Frontend:
-- React.js (.tsx)
-- talwind CSS
-- Monaco Editor
-- Chart.js / Recharts
-
-Backend:
-- Spring Boot
-- REST APIs
-- JWT Authentication
-
-AI / NLP:
-- LLM or OpenAI API
-- Prompt-based JD parsing
-- AI scoring for subjective answers
-- AI-based interview evaluation
-
-Database:
-- MySQL / PostgreSQL
-
-Other:
-- Redis
-- Docker
-- Judge0 or sandbox executor
-
----
-
-## System Architecture
-
-JD Upload → JD Parser → Question Generator → Assessment Engine → AI Interview Engine → Evaluation Engine → Scoring & Ranking → Recruiter Dashboard
-
----
-
-## Core Modules
-
-1. JD Intelligence Engine  
-2. Question Generator  
-3. Assessment Engine  
-4. AI Interview Engine  
-5. Evaluation Engine  
-6. Analytics Dashboard  
-
----
-
-## Project Structure
-
-ai-assessment-platform/  
-frontend/  
-backend/  
-ai-service/  
-database/  
-docs/  
-README.md  
-
----
-
-## Database Tables (Simplified)
-
-- users
-- job_descriptions
-- assessments
-- questions
-- interview_sessions
-- submissions
-- scores
-- reports
-
----
-
-## Setup Instructions
-
-### Backend
-
+#### 2. Backend
+```bash
+cd backend
 mvn clean install
 mvn spring-boot:run
+```
 
-### Frontend
+#### 3. Model Service
+```bash
+cd models
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+python ai_service.py
+```
 
-npm install
-npm start
+## 🌐 Deployment
+
+### Model Service (Render)
+
+1. **Repository**: https://github.com/Ajmeriya/gn-iit
+2. **Root Directory**: `models`
+3. **Build Command**: `pip install -r requirements.txt && python -m spacy download en_core_web_sm`
+4. **Start Command**: `bash start.sh`
+5. **Environment Variables**:
+   - `GEMINI_API_KEY` (required)
+   - `GEMINI_API_KEY_2` (optional, for multi-key support)
+
+See `models/DEPLOYMENT.md` for detailed deployment instructions.
+
+### Backend (Render)
+
+- Deploy Spring Boot application
+- Set database connection string
+- Configure AI service URL: `ai.service.url=https://your-model-service.onrender.com`
+
+### Frontend (Vercel)
+
+- Connect GitHub repository
+- Set build command: `npm run build`
+- Set output directory: `dist`
+- Configure API endpoint
 
 ### Database
-Create database and import schema
+
+Choose one:
+- **Railway**: PostgreSQL hosting
+- **Neon**: Serverless PostgreSQL
+- **Supabase**: PostgreSQL with additional features
+
+## 🔑 Environment Variables
+
+### Model Service
+- `GEMINI_API_KEY`: Google Gemini API key (required)
+- `GEMINI_API_KEY_2`: Secondary API key (optional)
+- `PORT`: Service port (auto-set by Render)
+
+### Backend
+- `SPRING_DATASOURCE_URL`: Database connection string
+- `SPRING_DATASOURCE_USERNAME`: Database username
+- `SPRING_DATASOURCE_PASSWORD`: Database password
+- `AI_SERVICE_URL`: Model service URL
+
+### Frontend
+- `VITE_API_URL`: Backend API URL
+
+## 📚 Features
+
+### For Recruiters
+- Create custom assessments (MCQ, SQL, DSA)
+- AI-powered resume matching
+- Candidate analytics and leaderboard
+- Automated shortlisting
+
+### For Candidates
+- Apply to job postings
+- Take assessments online
+- Real-time code execution for DSA
+- View results and feedback
+
+## 🛠️ Technology Stack
+
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS
+- **Backend**: Spring Boot, Java, PostgreSQL
+- **AI/ML**: Python, Flask, Sentence-Transformers, Google Gemini API
+- **Deployment**: Render, Vercel, Railway/Neon/Supabase
+
+## 📖 Documentation
+
+- **Deployment Guide**: `models/DEPLOYMENT.md`
+- **API Documentation**: See backend Swagger UI
+- **Architecture**: See `STRUCTURE.md`
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 📄 License
+
+This project is part of IIT GN academic/research work.
+
+## 👥 Team
+
+- AI/ML Development
+- Backend Development
+- Frontend Development
 
 ---
 
-## Example Use Cases
-
-- Generate MERN developer assessment automatically  
-- Evaluate 1000 candidates instantly  
-- Detect fake skill claims  
-- Rank top performers  
-- Conduct automated AI interviews without human intervention  
-
----
-
-## Sample Output
-
-Overall: 82%  
-React: 90  
-Node: 75  
-MongoDB: 70  
-Interview Score: 85  
-Rank: 3/150  
-
----
-
-## AI Models Used
-
-- JD parsing
-- Question generation
-- Subjective grading
-- Similarity detection
-- AI interview evaluation
-
----
-
-## Fairness & Transparency
-
-- Standardized scoring
-- Skill-weighted evaluation
-- Explainable reports
-- No resume-only filtering
-
----
-
-## Limitations
-
-- AI grading may require human review
-- Coding sandbox needs resource control
-- LLM responses depend on prompt quality
-
----
-
-## Future Improvements
-
-- Adaptive difficulty
-- Video proctoring
-- Resume parser
-- Real-time cheating detection
-- Multi-language coding
-- Voice-based AI interviews
-
----
-
-## License
-
-MIT License
-
+**Last Updated**: 2025
+**Version**: 1.0.0
