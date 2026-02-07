@@ -1,0 +1,27 @@
+# Flask and web server
+Flask>=3.0.0
+flask-cors>=4.0.0
+gunicorn>=21.2.0
+
+# AI/ML Libraries
+# sentence-transformers will install torch and transformers as dependencies
+sentence-transformers>=2.2.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+
+# Google Gemini API
+google-generativeai>=0.3.0
+
+# PDF Processing
+pdfplumber>=0.10.0
+PyMuPDF>=1.23.0
+
+# NLP
+spacy>=3.7.0
+
+# Code Execution (for DSA questions)
+# Note: Python is already available on Render
+
+# Utilities
+python-dotenv>=1.0.0
+
